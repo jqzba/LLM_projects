@@ -27,36 +27,29 @@ embeddings = OpenAIEmbeddings()
 #Download multiple youtube transcripts TODO
 def create_db_from_youtube_videos(video_urls): 
     all_transcripts = []
-    print(video_urls)
+    
     for video_url in video_urls:
         try:
             loader = YoutubeLoader.from_youtube_url(video_url)
             transcript = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 90)
+            
+            # Split the transcript into chunks
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
             docs = text_splitter.split_documents(transcript)
-            print(docs)
-            if docs:
-                # Convert the chunks into strings and append to all_transcripts
-                for doc in docs:
-                    transcript_text = ' '.join(doc)
-                    all_transcripts.append(transcript_text)
+            
+            # Append each chunk to all_transcripts
+            all_transcripts.extend(docs)
                 
         except Exception as e:
             print(f"Failed to fetch transcript for video: {video_url}")
             print(e)
             continue
-    
-    # Combine all transcripts into a single string
-    combined_transcripts = ' '.join(all_transcripts)
-    
-    # Split the combined transcript into chunks again
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=90)
-    docs = text_splitter.split_documents(combined_transcripts)
 
     # Use FAISS to store text as vectors
-    db = FAISS.from_documents(docs, embeddings)  # You need to define 'embeddings'
+    db = FAISS.from_documents(all_transcripts, embeddings)  # You need to define 'embeddings'
     return db
 
+#download one transcript and make FAISS
 def create_db_from_url (video_url: str) -> FAISS:
     loader = YoutubeLoader.from_youtube_url(video_url)
     transcript = loader.load()
@@ -99,21 +92,21 @@ def get_response_from_query(db, query, k=4):
     
     
     chain = LLMChain(llm=llm, prompt=prompt)
-    response = chain.invoke(question=query, docs=docs_page_content)
+    response = chain.run(question=query, docs=docs_page_content)
     
     return response, docs
     
     
 # Example usage:
-video_url = "https://www.youtube.com/watch?v=zulGMYg0v6U"
-database = create_db_from_url(video_url)
+##video_url = "https://www.youtube.com/watch?v=zulGMYg0v6U"
+##database = create_db_from_url(video_url)
 
-##video_urls = ["https://www.youtube.com/watch?v=zulGMYg0v6U", "https://www.youtube.com/watch?v=mfEj7BsWR7A"]
-##database = create_db_from_youtube_videos(video_urls)'
+# Example usage:
+video_urls = ["https://www.youtube.com/watch?v=zulGMYg0v6U", "https://www.youtube.com/watch?v=N_P4pJjVTKc"]
+database = create_db_from_youtube_videos(video_urls)
 
 
-
-query = "What are they saying about LLMs"
+query = "How to build app with Chatgpt"
 response, docs = get_response_from_query(database, query)
 print(textwrap.fill(response, width=85))
       
